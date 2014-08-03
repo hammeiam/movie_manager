@@ -32,6 +32,9 @@ build/
 
 # unless supporting rvm < 1.11.0 or doing something fancy, ignore this:
 .rvmrc
+<<<<<<< HEAD
 
 # ignore specific files
 cli.rb
+=======
+>>>>>>> c7cece7eeb96577a1ab4df3654e4023197fda1e8
