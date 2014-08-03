@@ -52,7 +52,8 @@ module Mov
 		require 'rubygems'
 		require 'rottentomatoes'
 		require 'sequel'
-		require 'sqlite3'
+		#require 'sqlite3'
+		require 'pg'
 		require 'thread'
 
 		include RottenTomatoes
@@ -62,7 +63,8 @@ module Mov
 			Rotten.api_key = "9t2nx4s6bb62s8hvjftx8sx4"
 
 			# start database
-			@@DB = Sequel.sqlite('movies.db')
+			#@@DB = Sequel.sqlite('movies.db')
+			@@DB = Sequel.postgres('testdb', :host=>'localhost', :user=>'David', :password=>'password')
 
 			# create tables within database
 			create_all_tables
@@ -140,7 +142,7 @@ module Mov
 				return
 			end
 
-			movie_list = @movie_director_join.where(:name => director_name, :available => 1).group(:movies__id).order(:title).all 
+			movie_list = @movie_director_join.order(:title).distinct(:movies__id,:title).where(:name => director_name, :available => 1).all 
 
 			if movie_list.empty?
 				puts "Sorry, we don\'t have any movies directed by \'#{director_name}\'."
@@ -171,7 +173,7 @@ module Mov
 				return
 			end
 
-			movie_list = @movie_actor_join.where(:name => actor_name, :available => 1).group(:movies__id).order(:title).all 
+			movie_list = @movie_actor_join.order(:title).distinct(:movies__id,:title).where(:name => actor_name, :available => 1).all 
 
 			if movie_list.empty?
 				puts "Sorry, we don\'t have any movies starring \'#{actor_name}\'."
@@ -182,7 +184,7 @@ module Mov
 		end
 
 		def list_movies_by_genre(genre) # works
-			movie_list = @movie_genre_join.where(Sequel.ilike(:genre, '%'+genre+'%'), :available => 1).group(:movies__id).order(:title).all
+			movie_list = @movie_genre_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:genre, '%'+genre+'%'), :available => 1).all
 
 			if movie_list.empty?
 				puts 'Sorry, we don\'t have that genre. Please enter one from the list:'
@@ -195,7 +197,7 @@ module Mov
 		end
 
 		def play_unseen_genre(genre) # works
-			movie_genre_list = @movie_genre_join.where(Sequel.ilike(:genre, '%'+genre+'%'), :available => 1).group(:movies__id).all
+			movie_genre_list = @movie_genre_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:genre, '%'+genre+'%'), :available => 1).all
 			if movie_genre_list.empty?
 				puts "Sorry, we don\'t have any movies with the genre #{genre}."
 			else
@@ -232,7 +234,7 @@ module Mov
 		def play(movie_title, user_input=true) # works
 			# does a search for the title if a user input it. opens the exact file if another function provided the name
 			if user_input
-				movie_to_play = @movie_directories_join.where(Sequel.ilike(:title, '%'+movie_title+'%'), :available => 1).group(:movies__id).order(:title).first 
+				movie_to_play = @movie_directories_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:title, '%'+movie_title+'%'), :available => 1).first 
 			else
 				movie_to_play = @movies_dataset.where(:title => movie_title).first
 			end
