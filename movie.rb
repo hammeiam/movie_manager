@@ -70,25 +70,25 @@ module Mov
 			create_all_tables
 
 			# tie ruby-accessible datasets to database table
-			@movies_dataset 			= @@DB[:movies]
-			@movie_genre_dataset 		= @@DB[:movie_genre]
-			@genres_dataset 			= @@DB[:genres]
-			@directories_dataset		= @@DB[:directories]
-			@movie_actor_dataset 		= @@DB[:movie_actor]
-			@actors_dataset 			= @@DB[:actors]
+			@movies_dataset						= @@DB[:movies]
+			@movie_genre_dataset 			= @@DB[:movie_genre]
+			@genres_dataset 					= @@DB[:genres]
+			@directories_dataset			= @@DB[:directories]
+			@movie_actor_dataset 			= @@DB[:movie_actor]
+			@actors_dataset 					= @@DB[:actors]
 			@movie_director_dataset 	= @@DB[:movie_director]
-			@directors_dataset 			= @@DB[:directors]
+			@directors_dataset 				= @@DB[:directors]
 
 			# joins
 			@movie_directories_join 	= @movies_dataset.join(:directories, :id => :directory_id) # must be before other joins
-			@movie_genre_join			= @movie_directories_join.join(:movie_genre, :movie_id => :movies__id).join(:genres, :id => :genre_id)
-			@movie_actor_join			= @movie_directories_join.join(:movie_actor, :movie_id => :movies__id).join(:actors, :id => :actor_id)
-			@movie_director_join		= @movie_directories_join.join(:movie_director, :movie_id => :movies__id).join(:directors, :id => :movie_director__director_id)
+			@movie_genre_join					= @movie_directories_join.join(:movie_genre, :movie_id => :movies__id).join(:genres, :id => :genre_id)
+			@movie_actor_join					= @movie_directories_join.join(:movie_actor, :movie_id => :movies__id).join(:actors, :id => :actor_id)
+			@movie_director_join			= @movie_directories_join.join(:movie_director, :movie_id => :movies__id).join(:directors, :id => :movie_director__director_id)
 
 			# queues and threads
-			@local_movies_queue 		= Queue.new
+			@local_movies_queue 			= Queue.new
 			@processed_movies_queue 	= Queue.new
-			@threads 					= []
+			@threads 									= []
 
 			# enqueue_local_movies
 			# add_all_movies_to_table
@@ -105,12 +105,38 @@ module Mov
 		end
 
 		def update_file_names
-			#@movies_dataset.select(:id, :original_title, :title).where(:title => .all
+			# find where movie titles =0. 0=unchecked, 1=correct
+			# for each, ask if title is correct
+			# if yes, dataset.where(:id => each[:id]).update(:correct_filename => 1)
+		  # else
+			incorrect_names = @movies_dataset.select(:id, :original_title, :title).where(:correct_filename => 0).all
+			incorrect_names.each do |name|
+				puts "Is \"#{name[:title]}\" the correct title for \"#{File.basename(name[:original_title],".*")}\"? \n y/n"
+				response = gets.chomp.downcase
+				#name[:id] == basename(name[:original_title],".*")
+				case response
+				when 'y','yes'
+					new_title = File.dirname(name[:original_title]) + '/' + name[:title].gsub(/[\.|\_]/," ").gsub(/[\/|:]/,"-") + File.extname(name[:original_title])
+					File.rename(name[:original_title], new_title) #this is also in normalize
+					# mac replaces ':' with '/', this is a problem
+					# directories get confused when a movie title has a '/' in it
+					@movies_dataset.where(:id => name[:id]).update(:correct_filename => 1, :original_title => new_title)
+					puts "File updated"
+				when 'n', 'no'
+					# uncorrect title, must refine, replace our RT search records
+					@movies_dataset.where(:id => name[:id]).update(:correct_filename => -1)
+					puts "crap, sorry..."
+				else
+					puts "Respond with 'y' or 'n'"
+				end
+			end
+
 			# http://sequel.jeremyevans.net/rdoc/files/doc/cheat_sheet_rdoc.html#label-Update%2FDelete+rows
 			# be sure to bake in http://www.ruby-doc.org/core-2.1.2/File.html#method-c-rename
 			#File.rename(old,new)
 			#File.extname(file) gets extension
-			#pull original directory from DB somehow. 
+			#File.dirname(file)
+			# change db record, change filename
 		end
 
 		def find_files_in(path) # works
@@ -271,7 +297,7 @@ module Mov
 
 		def normalize_title(title) # works
 			# output should seperate path, suffix. Change periods and underscores to spaces. Possibly change / to : 
-			File.basename(title,'.*').gsub(/[\.|\_]/," ")
+			File.basename(title,'.*').gsub(/[\.|\_]/," ").gsub(/[\/|:]/,"-")
 		end
 
 		def update_directories_status # works 
@@ -361,6 +387,7 @@ module Mov
 			# with internet
 			begin
 				output = RottenMovie.find(:title => clean_name, :expand_results => true, :limit => 1)	# hits RT once to get general movie info
+				sleep 1
 				output = RottenMovie.find(:id => output.id)	if output.class == PatchedOpenStruct # hits RT a second time with id# to get most detailed info :(
 			rescue		# addresses the occasional crash that RT limits plus our volume of calls can bring on.
 				sleep 1
