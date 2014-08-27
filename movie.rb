@@ -23,14 +23,14 @@ module Mov
 			create_all_tables
 
 			# tie ruby-accessible datasets to database table
-			@movies_dataset					= @@DB[:movies]
-			@movie_genre_dataset 			= @@DB[:movie_genre]
-			@genres_dataset 				= @@DB[:genres]
+			@movies_dataset						= @@DB[:movies]
+			@movie_genre_dataset			= @@DB[:movie_genre]
+			@genres_dataset						= @@DB[:genres]
 			@directories_dataset			= @@DB[:directories]
-			@movie_actor_dataset 			= @@DB[:movie_actor]
-			@actors_dataset 				= @@DB[:actors]
-			@movie_director_dataset 		= @@DB[:movie_director]
-			@directors_dataset 				= @@DB[:directors]
+			@movie_actor_dataset			= @@DB[:movie_actor]
+			@actors_dataset						= @@DB[:actors]
+			@movie_director_dataset		= @@DB[:movie_director]
+			@directors_dataset				= @@DB[:directors]
 
 			# joins
 			@movie_directories_join 	= @movies_dataset.join(:directories, :id => :directory_id) # must be before other joins
@@ -39,9 +39,9 @@ module Mov
 			@movie_director_join			= @movie_directories_join.join(:movie_director, :movie_id => :movies__id).join(:directors, :id => :movie_director__director_id)
 
 			# queues and threads
-			@local_movies_queue 			= Queue.new
-			@processed_movies_queue 	= Queue.new
-			@threads 									= []
+			@local_movies_queue				= Queue.new
+			@processed_movies_queue		= Queue.new
+			@threads									= []
 
 			# enqueue_local_movies
 			# add_all_movies_to_table
@@ -54,9 +54,9 @@ module Mov
 		end
 
 		def refine_unfound_movie_titles
-			# for n in movies where original title == title
-			# puts "What should the title of #{title} be?"
-			# title = gets.chop 
+				# for n in movies where original title == title
+				# puts "What should the title of #{title} be?"
+				# title = gets.chop 
 		end
 
 		def update_file_names
@@ -64,11 +64,11 @@ module Mov
 			# for each, ask if title is correct
 			# if yes, dataset.where(:id => each[:id]).update(:correct_filename => 1)
 		  # else
-			incorrect_names = @movies_dataset.select(:id, :original_title, :title).where(:correct_filename => 0).all
-			incorrect_names.each do |name|
-				puts "Is \"#{name[:title]}\" the correct title for \"#{File.basename(name[:original_title],".*")}\"? \n y/n"
-				print '> '
-				response = $stdin.gets.chomp.downcase
+		  incorrect_names = @movies_dataset.select(:id, :original_title, :title).where(:correct_filename => 0).all
+		  incorrect_names.each do |name|
+		  	puts "Is \"#{name[:title]}\" the correct title for \"#{File.basename(name[:original_title],".*")}\"? \n y/n"
+		  	print '> '
+		  	response = $stdin.gets.chomp.downcase
 				#name[:id] == basename(name[:original_title],".*")
 				case response
 				when 'y','yes'
@@ -79,9 +79,11 @@ module Mov
 					@movies_dataset.where(:id => name[:id]).update(:correct_filename => 1, :original_title => new_title)
 					puts "File updated"
 				when 'n', 'no'
-					# uncorrect title, must refine, replace our RT search records
+					# incorrect title, must refine, replace our RT search records
 					@movies_dataset.where(:id => name[:id]).update(:correct_filename => -1)
 					puts "crap, sorry..."
+				when 'end','exit'
+					break
 				else
 					puts "Respond with 'y' or 'n'"
 					# you'll have to run the command again to continue
@@ -127,7 +129,7 @@ module Mov
 		end
 
 	### List and Play Movies ###
-		def list_all_movies(min_score = -1) # works
+		def list_all_movies(min_score=-1) # works
 			movie_list = @movie_directories_join.order(:title).distinct(:movies__id,:title).where({:available => 1}, (Sequel.expr(:audience_score) >= min_score)).all
 
 			if movie_list.empty?
@@ -290,9 +292,9 @@ module Mov
 				# this code was supplied by Theo on SO
 				# http://stackoverflow.com/questions/6558828/thread-and-queue
 				@threads << Thread.new do
-				    until @local_movies_queue.empty?
-					    long_name, clean_name, data = @local_movies_queue.pop(true) rescue nil
-				      	if long_name
+					until @local_movies_queue.empty?
+						long_name, clean_name, data = @local_movies_queue.pop(true) rescue nil
+						if long_name
 							if movies_record_exists?(long_name)
 								movie_title = @movies_dataset.select(:title).where(:original_title => long_name).first[:title]
 								puts "#{movie_title} record already exists"
@@ -301,7 +303,7 @@ module Mov
 								@processed_movies_queue << [long_name, clean_name, data]
 								add_movie(@processed_movies_queue.pop)
 							end
-			    		end
+						end
 					end
 				end
 			end
@@ -316,11 +318,11 @@ module Mov
 
 				# Add Movie to movies_dataset
 				@movies_dataset.insert( :original_title => long_name, 
-										:title => data.title,
-										:critic_score => data.ratings.critics_score,
-										:audience_score => data.ratings.audience_score,
-										:date_added => Time.new(),
-										:directory_id => @directories_dataset.select(:id).where(:directory_path => File.dirname(long_name)).first[:id])
+					:title => data.title,
+					:critic_score => data.ratings.critics_score,
+					:audience_score => data.ratings.audience_score,
+					:date_added => Time.new(),
+					:directory_id => @directories_dataset.select(:id).where(:directory_path => File.dirname(long_name)).first[:id])
 
 				movie_id = @movies_dataset.select(:id).where(:title => data.title).first[:id]
 
@@ -328,21 +330,21 @@ module Mov
 				data.abridged_cast.each do |actor| 
 					@actors_dataset.insert(:name => actor[:name]) unless actors_record_exists?(actor[:name]) # used to be :name => actor.name. Make sure this works online!
 					@movie_actor_dataset.insert(:movie_id => movie_id,
-												:actor_id => @actors_dataset.select(:id).where(:name => actor[:name]).first[:id])
+						:actor_id => @actors_dataset.select(:id).where(:name => actor[:name]).first[:id])
 				end if data.abridged_cast
 
 				# Add Genres to genres_dataset and movie_genre_dataset
 				data.genres.each do |genre| 
 					@genres_dataset.insert(:genre => genre) unless genres_record_exists?(genre)
 					@movie_genre_dataset.insert(:movie_id => movie_id,
-												:genre_id => @genres_dataset.select(:id).where(:genre => genre).first[:id])
+						:genre_id => @genres_dataset.select(:id).where(:genre => genre).first[:id])
 				end if data.genres
 
 				# Add Directors to directors_dataset and movie_director_dataset 
 				data.abridged_directors.each do |director|   
 					@directors_dataset.insert(:name => director[:name]) unless directors_record_exists?(director[:name])
 					@movie_director_dataset.insert(:movie_id => movie_id,
-												   :director_id => @directors_dataset.select(:id).where(:name => director[:name]).first[:id])
+						:director_id => @directors_dataset.select(:id).where(:name => director[:name]).first[:id])
 				end if data.abridged_directors
 
 				puts "#{data.title} added to table" 
@@ -375,55 +377,55 @@ module Mov
 
 
 	### Exists? ###
-		def movies_record_exists?(original)	
-			return false if @movies_dataset.select(:id).where(:original_title => original).all.length == 0 
-			return true
-		end
+	def movies_record_exists?(original)	
+		return false if @movies_dataset.select(:id).where(:original_title => original).all.length == 0 
+		return true
+	end
 
-		def actors_record_exists?(name)	
-			return false if @actors_dataset.select(:id).where(:name => name).all.length == 0 
-			return true
-		end
+	def actors_record_exists?(name)	
+		return false if @actors_dataset.select(:id).where(:name => name).all.length == 0 
+		return true
+	end
 
-		def directors_record_exists?(name)	
-			return false if @directors_dataset.select(:id).where(:name => name).all.length == 0 
-			return true
-		end
+	def directors_record_exists?(name)	
+		return false if @directors_dataset.select(:id).where(:name => name).all.length == 0 
+		return true
+	end
 
-		def genres_record_exists?(genre)
-			return false if @genres_dataset.select(:id).where(:genre => genre).all.length == 0 
-			return true
-		end
+	def genres_record_exists?(genre)
+		return false if @genres_dataset.select(:id).where(:genre => genre).all.length == 0 
+		return true
+	end
 
-		def directories_record_exists?(path)
-			return false if @directories_dataset.select(:directory_path).where(:directory_path => path).all.length == 0 
-			return true
-		end
+	def directories_record_exists?(path)
+		return false if @directories_dataset.select(:directory_path).where(:directory_path => path).all.length == 0 
+		return true
+	end
 
 	### Tables & DBs ###
-		def create_all_tables
-			create_directories_table 	unless @@DB.table_exists?(:directories)
+	def create_all_tables
+		create_directories_table 	unless @@DB.table_exists?(:directories)
 
-			create_movies_table 		unless @@DB.table_exists?(:movies)
+		create_movies_table 		unless @@DB.table_exists?(:movies)
 
-			create_genres_table 		unless @@DB.table_exists?(:genres)
-			create_movie_genre_table 	unless @@DB.table_exists?(:movie_genre)
+		create_genres_table 		unless @@DB.table_exists?(:genres)
+		create_movie_genre_table 	unless @@DB.table_exists?(:movie_genre)
 
-			create_actors_table 		unless @@DB.table_exists?(:actors)
-			create_movie_actor_table 	unless @@DB.table_exists?(:movie_actor)
+		create_actors_table 		unless @@DB.table_exists?(:actors)
+		create_movie_actor_table 	unless @@DB.table_exists?(:movie_actor)
 
-			create_directors_table 		unless @@DB.table_exists?(:directors)
-			create_movie_director_table unless @@DB.table_exists?(:movie_director)
-		end
+		create_directors_table 		unless @@DB.table_exists?(:directors)
+		create_movie_director_table unless @@DB.table_exists?(:movie_director)
+	end
 
-		def create_movies_table
-			if @@DB.table_exists?(:movies)
-				raise StandardError, 'Movies table already exists, try a different name'	
-			else
-				@@DB.create_table :movies do
-				  primary_key :id
-				  String  	:original_title
-				  String  	:title
+	def create_movies_table
+		if @@DB.table_exists?(:movies)
+			raise StandardError, 'Movies table already exists, try a different name'	
+		else
+			@@DB.create_table :movies do
+				primary_key :id
+				String  	:original_title
+				String  	:title
 				  Integer	:critic_score, 		:default => -1 	#1-100
 				  Integer	:audience_score, 	:default => -1 	#1-100
 				  Integer 	:my_score, 			:default => -1 	#1-100
@@ -440,8 +442,8 @@ module Mov
 				raise StandardError, 'Directories table already exists, try a different name'	
 			else
 				@@DB.create_table :directories do
-				  	primary_key :id
-				  	String :directory_path
+					primary_key :id
+					String :directory_path
 					Integer :available, 		:default => 1
 				end 
 			end
@@ -452,8 +454,8 @@ module Mov
 				raise StandardError, 'Genres table already exists, try a different name'	
 			else
 				@@DB.create_table :genres do
-				  primary_key :id
-				  String :genre
+					primary_key :id
+					String :genre
 				end
 			end
 		end
@@ -463,9 +465,9 @@ module Mov
 				raise StandardError, 'Movie_Genre table already exists, try a different name'	
 			else
 				@@DB.create_table :movie_genre do
-				  primary_key :id
-				  Integer :movie_id
-				  Integer :genre_id
+					primary_key :id
+					Integer :movie_id
+					Integer :genre_id
 				end
 			end
 		end
@@ -475,8 +477,8 @@ module Mov
 				raise StandardError, 'Actors table already exists, try a different name'	
 			else
 				@@DB.create_table :actors do
-				  primary_key :id
-				  String :name
+					primary_key :id
+					String :name
 				end
 			end
 		end
@@ -486,9 +488,9 @@ module Mov
 				raise StandardError, 'Movie_Actor table already exists, try a different name'	
 			else
 				@@DB.create_table :movie_actor do
-				  primary_key :id
-				  Integer :movie_id
-				  Integer :actor_id
+					primary_key :id
+					Integer :movie_id
+					Integer :actor_id
 				end
 			end
 		end
@@ -498,8 +500,8 @@ module Mov
 				raise StandardError, 'Directors table already exists, try a different name'	
 			else
 				@@DB.create_table :directors do
-				  primary_key :id
-				  String :name
+					primary_key :id
+					String :name
 				end
 			end
 		end
@@ -509,9 +511,9 @@ module Mov
 				raise StandardError, 'Movie_Director table already exists, try a different name'	
 			else
 				@@DB.create_table :movie_director do
-				  primary_key :id
-				  Integer :movie_id
-				  Integer :director_id
+					primary_key :id
+					Integer :movie_id
+					Integer :director_id
 				end
 			end
 		end
@@ -582,6 +584,9 @@ module Mov
 end
 
 #### TO DO: ####
+#
+# some directories are listed as NULL. Find out why and fix it.
+#
 # X add directories DB
 # X - add "directory present?" column to movies DB 0/1
 # X - add "directory_present?" function to update dir status, runs on initialization. We assume no devices are being removed within a session.

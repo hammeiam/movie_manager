@@ -13,7 +13,7 @@ puts ""
 puts "First time? Type 'start' and drag & drop the folder that contains your movies" if !session.initialized?
 puts "eg 'start /Users/me/Movies'" if !session.initialized?
 
-command = []
+#command = []
 while true
 	print '> '
 	command = $stdin.gets.chomp.split
@@ -23,7 +23,7 @@ while true
 
 	elsif command[0] == 'search'
 		if command[1] == 'movies'
-			session.list_all_movies(command[2])
+			session.list_all_movies(command[2]?command[2]:-1) # sets a default value of -1 for empty rating arguments
 
 		elsif command[1] == 'actor'
 			if command[-1] =~ /[0-9]+/
@@ -82,8 +82,8 @@ while true
 		puts ""
 		puts "Examples:"
 		puts "search actor Stallone 60 (note that first or last names can be used. Min movie rating is optional)"
-		puts "play 'finding nemo' (note that names and title searches containing more than 1 word must be put inside of quotations"
-		puts "play unseen com (note that partial searches for names and genres are allowed)" 
+		puts "play finding nemo (note that names and title searches can be more than 1 word long)"
+		puts "play unseen com (note that partial searches for names and genres are allowed. This will play a comedy)" 
 		puts ""
 		puts "--- end of help ---"
 
