@@ -1,55 +1,5 @@
 ### My Awesome Movie Searcher ###
-# I wrote this script to help me sort through the hundreds of movies I have on my hard drive, most of which I haven't seen and don't know much about. The script finds your movies, queries RottenTomatoes for data about them, then stores the data in a sqlite DB. There's a lot of functionality I have yet to add, but I think this is a solid start. 
-#
-# Functions include:
-# play(movie)	# opens a movie
-# play_unseen_genre(genre)	# opens a movie that you have not yet watched from a given genre
-# list_movies_with_director(director)	
-# list_movies_with_actor(actor)
-# list_movies_by_genre(genre) 
-#
-# There isn't a CLI (yet!), so I run commands in a separate executable rb file that requires this file. Create an instance of Finder, then run the above functions on that object. # Run from within movie directory
-# 
-#### TO DO: ####
-# X add directories DB
-# X - add "directory present?" column to movies DB 0/1
-# X - add "directory_present?" function to update dir status, runs on initialization. We assume no devices are being removed within a session.
-# X - add "directory_present => 1" to all existing searches
-#
-# update add_all_movies_to_table. Auto-find/add new movies. may need to rework enqueue_local_movies to output array instead of queue
-#
-# X if RT call fails, restart and continue. 
-#
-# add ARGV for command line input, woo! Look into Thor to help list commands
-#
-# X Let user specify directory root. use Dir.chdir(new_dir). Volume can be dragged and dropped in. request on init.
-#
-# X func search by actor/director 
-# X improve act/dir search with last name refinement
-#
-# Look into using Find instead of Dir.glob to allow the user to exclude some folders. 
-# http://ruby-doc.org/stdlib-1.9.3/libdoc/find/rdoc/Find.html
-# can maybe also use reject on glob
-# http://stackoverflow.com/questions/4505566/is-there-a-way-to-glob-a-directory-in-ruby-but-exclude-certain-directories
-#
-# func is x the correct name? y/n
-#
-# create a setup command. if db is empty, spcify a dir to look in, add movies, update dirs. 
-#
-# consider filtering actor/dir results if dir is unattached
-# consider tracking play count rather than having it be binary
-# consider making better use of the directory & origial movie name combo. feels redundant. 
-#
-# func update file names to reflect correct titles. Will need to be unix-safe
-# http://superuser.com/questions/358855/what-characters-are-safe-in-cross-platform-file-names-for-linux-windows-and-os
-# 
-# put on the web.
-# Add filetypes. 
-# How to deal with file being renamed by user?
 
-# Look at 'index on expressions'
-
-#module Movie_Searcher
 module Mov
 	class Finder
 		require 'rubygems'
@@ -98,7 +48,9 @@ module Mov
 			# update_directories_status
 		end
 
-		def update()		
+	### Update and Refine Data ###
+		def initialized?
+			@movies_dataset.first
 		end
 
 		def refine_unfound_movie_titles
@@ -145,7 +97,7 @@ module Mov
 		end
 
 		def find_files_in(path) # works
-			# input must be a string inside double quotations 
+			# should there be a default path? Path to this Dir.
 			Dir.chdir(path) do
 				enqueue_local_movies
 				add_all_movies_to_table
@@ -153,7 +105,6 @@ module Mov
 			end
 		end
 
-		
 		def update_watched_list # works
 			@movies_dataset.where(:watched => -1).all.each do |movie|
 				puts "Have you seen #{movie[:title]}? Y/N or end"
@@ -175,7 +126,7 @@ module Mov
 			end
 		end
 
-### List and Play Movies ###
+	### List and Play Movies ###
 		def list_all_movies(min_score = -1) # works
 			movie_list = @movie_directories_join.order(:title).distinct(:movies__id,:title).where({:available => 1}, (Sequel.expr(:audience_score) >= min_score)).all
 
@@ -240,7 +191,7 @@ module Mov
 				return
 			end
 
-			movie_list = @movie_actor_join.order(:title).distinct(:movies__id,:title).where({:name => actor_name} & {:available => 1} & (Sequel.expr(:audience_score) >= min_score)).all 
+			movie_list = @movie_actor_join.order(:title).distinct(:movies__id,:title).where({:name => actor_name}, {:available => 1}, (Sequel.expr(:audience_score) >= min_score)).all 
 
 			if movie_list.empty?
 				puts "Sorry, we don\'t have any movies starring \'#{actor_name}\'."
@@ -306,7 +257,7 @@ module Mov
 			end
 		end
 
-### Movie-handling fuctions ###
+	### Movie-handling fuctions ###
 
 		def enqueue_local_movies 	# works
 			movies_glob = Dir.glob('**/*.{mkv,MKV,avi,AVI,mp4,MP4,mpg,MPG,mov,MOV}').uniq
@@ -629,3 +580,43 @@ module Mov
 		end
 	end
 end
+
+#### TO DO: ####
+# X add directories DB
+# X - add "directory present?" column to movies DB 0/1
+# X - add "directory_present?" function to update dir status, runs on initialization. We assume no devices are being removed within a session.
+# X - add "directory_present => 1" to all existing searches
+#
+# X update add_all_movies_to_table. Auto-find/add new movies. 
+#
+# X if RT call fails, restart and continue. 
+#
+# X add ARGV for command line input, woo! Look into Thor to help list commands
+#
+# X Let user specify directory root. use Dir.chdir(new_dir). Volume can be dragged and dropped in. request on init.
+#
+# X func search by actor/director 
+# X improve act/dir search with last name refinement
+#
+# Look into using Find instead of Dir.glob to allow the user to exclude some folders. 
+# http://ruby-doc.org/stdlib-1.9.3/libdoc/find/rdoc/Find.html
+# can maybe also use reject on glob
+# http://stackoverflow.com/questions/4505566/is-there-a-way-to-glob-a-directory-in-ruby-but-exclude-certain-directories
+#
+# X func is x the correct name? y/n
+#
+# swtich back to sqlite3 to make this a one click startup.
+#
+# X create a setup command. if db is empty, spcify a dir to look in, add movies, update dirs. 
+#
+# X consider filtering actor/dir results if dir is unattached
+# consider tracking play count rather than having it be binary
+# consider making better use of the directory & origial movie name combo. feels redundant. 
+#
+# X func update file names to reflect correct titles. Will need to be unix-safe
+# http://superuser.com/questions/358855/what-characters-are-safe-in-cross-platform-file-names-for-linux-windows-and-os
+# 
+# put on the web.
+# Add filetypes. 
+# How to deal with file being renamed by user?
+# Look at 'index on expressions'
