@@ -34,6 +34,8 @@
 #
 # func is x the correct name? y/n
 #
+# create a setup command. if db is empty, spcify a dir to look in, add movies, update dirs. 
+#
 # consider filtering actor/dir results if dir is unattached
 # consider tracking play count rather than having it be binary
 # consider making better use of the directory & origial movie name combo. feels redundant. 
@@ -43,6 +45,7 @@
 # 
 # put on the web.
 # Add filetypes. 
+# How to deal with file being renamed by user?
 
 # Look at 'index on expressions'
 
@@ -70,13 +73,13 @@ module Mov
 			create_all_tables
 
 			# tie ruby-accessible datasets to database table
-			@movies_dataset						= @@DB[:movies]
+			@movies_dataset					= @@DB[:movies]
 			@movie_genre_dataset 			= @@DB[:movie_genre]
-			@genres_dataset 					= @@DB[:genres]
+			@genres_dataset 				= @@DB[:genres]
 			@directories_dataset			= @@DB[:directories]
 			@movie_actor_dataset 			= @@DB[:movie_actor]
-			@actors_dataset 					= @@DB[:actors]
-			@movie_director_dataset 	= @@DB[:movie_director]
+			@actors_dataset 				= @@DB[:actors]
+			@movie_director_dataset 		= @@DB[:movie_director]
 			@directors_dataset 				= @@DB[:directors]
 
 			# joins
@@ -112,7 +115,8 @@ module Mov
 			incorrect_names = @movies_dataset.select(:id, :original_title, :title).where(:correct_filename => 0).all
 			incorrect_names.each do |name|
 				puts "Is \"#{name[:title]}\" the correct title for \"#{File.basename(name[:original_title],".*")}\"? \n y/n"
-				response = gets.chomp.downcase
+				print '> '
+				response = $stdin.gets.chomp.downcase
 				#name[:id] == basename(name[:original_title],".*")
 				case response
 				when 'y','yes'
@@ -128,6 +132,7 @@ module Mov
 					puts "crap, sorry..."
 				else
 					puts "Respond with 'y' or 'n'"
+					# you'll have to run the command again to continue
 				end
 			end
 
@@ -148,99 +153,12 @@ module Mov
 			end
 		end
 
-		def list_movies_with_director(director) # works
-			results_list = @directors_dataset.where(Sequel.ilike(:name, '%'+director+'%')).all
-			if results_list.length > 1
-				temp = []
-				results_list.each {|result| temp << result[:name]}
-				puts "Here are the results for '#{director}'. Please enter the number of the one you want."
-				temp.each_with_index do |name,i| 
-					puts "#{i+1}: #{name}"
-				end
-				director_name = temp[gets.chomp.to_i - 1]
-
-			elsif results_list.length == 1
-				director_name = results_list[0][:name]
-
-			else
-				puts "Sorry, we couldn't find a director named '#{director}'. Here are the directors we have:"
-				@directors_dataset.select(:name).order(:name).all.each {|director| puts '- ' + director[:name]}
-				return
-			end
-
-			movie_list = @movie_director_join.order(:title).distinct(:movies__id,:title).where(:name => director_name, :available => 1).all 
-
-			if movie_list.empty?
-				puts "Sorry, we don\'t have any movies directed by \'#{director_name}\'."
-			else
-				puts "--- Movies directed by '#{director_name}' ---"
-				movie_list.each{ |movie| puts movie[:title]} 	
-			end
-		end
-
-		def list_movies_with_actor(actor) # works
-			results_list = @actors_dataset.where(Sequel.ilike(:name, '%'+actor+'%')).all
-
-			if results_list.length > 1
-				temp = []
-				results_list.each {|result| temp << result[:name]}
-				puts "Here are the results for '#{actor}'. Please enter the number of the one you want."
-				temp.each_with_index do |name,i| 
-					puts "#{i+1}: #{name}"
-				end
-				actor_name = temp[gets.chomp.to_i - 1]
-
-			elsif results_list.length == 1
-				actor_name = results_list[0][:name]
-
-			else
-				puts "Sorry, we couldn't find an actor named '#{actor}'. Here are the actors we have:"
-				@actors_dataset.select(:name).order(:name).all.each {|actor| puts '- ' + actor[:name]}
-				return
-			end
-
-			movie_list = @movie_actor_join.order(:title).distinct(:movies__id,:title).where(:name => actor_name, :available => 1).all 
-
-			if movie_list.empty?
-				puts "Sorry, we don\'t have any movies starring \'#{actor_name}\'."
-			else
-				puts "--- Movies starring '#{actor_name}' ---"
-				movie_list.each{ |movie| puts movie[:title]} 	
-			end
-		end
-
-		def list_movies_by_genre(genre) # works
-			movie_list = @movie_genre_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:genre, '%'+genre+'%'), :available => 1).all
-
-			if movie_list.empty?
-				puts 'Sorry, we don\'t have that genre. Please enter one from the list:'
-				@genres_dataset.select(:genre).order(:genre).all.each {|genre| puts '- ' + genre[:genre]}
-			else
-				search_genre = movie_list.first[:genre]
-				puts "--- Movies with genre '#{search_genre}' ---"
-				movie_list.each{ |movie| puts movie[:title]} 
-			end
-		end
-
-		def play_unseen_genre(genre) # works
-			movie_genre_list = @movie_genre_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:genre, '%'+genre+'%'), :available => 1).all
-			if movie_genre_list.empty?
-				puts "Sorry, we don\'t have any movies with the genre #{genre}."
-			else
-				unwatched_list = movie_genre_list.select{|movie| movie[:watched] != 1}
-				if unwatched_list.empty?
-					puts "Sorry, you\'ve seen all of your #{genre} movies"
-				else
-					movie_title = unwatched_list.sample[:title]
-					play(movie_title,false)
-				end
-			end		
-		end
-
+		
 		def update_watched_list # works
 			@movies_dataset.where(:watched => -1).all.each do |movie|
 				puts "Have you seen #{movie[:title]}? Y/N or end"
-				response = gets.chomp.downcase
+				print '> '
+				response = $stdin.gets.chomp.downcase
 				case response
 				when 'y', 'yes'
 					update_watched_status(movie[:title],1)
@@ -257,6 +175,110 @@ module Mov
 			end
 		end
 
+### List and Play Movies ###
+		def list_all_movies(min_score = -1) # works
+			movie_list = @movie_directories_join.order(:title).distinct(:movies__id,:title).where({:available => 1}, (Sequel.expr(:audience_score) >= min_score)).all
+
+			if movie_list.empty?
+				puts "Sorry, we don\'t have any movies with a score higher than #{min_score}"
+			else
+				puts "--- Movies Rated Higher Than #{min_score} ---"
+				movie_list.each{ |movie| puts movie[:title]} 
+			end
+		end
+
+		def list_movies_with_director(director) # works
+			results_list = @directors_dataset.where(Sequel.ilike(:name, '%'+director+'%')).all
+			if results_list.length > 1
+				temp = []
+				results_list.each {|result| temp << result[:name]}
+				puts "Here are the results for '#{director}'. Please enter the number of the one you want."
+				temp.each_with_index do |name,i| 
+					puts "#{i+1}: #{name}"
+				end
+				print '> '
+				director_name = temp[$stdin.gets.chomp.to_i - 1]
+
+			elsif results_list.length == 1
+				director_name = results_list[0][:name]
+
+			else
+				puts "Sorry, we couldn't find a director named '#{director}'. Here are the directors we have:"
+				@directors_dataset.select(:name).order(:name).all.each {|director| puts '- ' + director[:name]}
+				return
+			end
+
+			movie_list = @movie_director_join.order(:title).distinct(:movies__id,:title).where({:name => director_name} & {:available => 1} & (Sequel.expr(:audience_score) >= min_score)).all 
+
+			if movie_list.empty?
+				puts "Sorry, we don\'t have any movies directed by \'#{director_name}\'."
+			else
+				puts "--- Movies directed by '#{director_name}' ---"
+				movie_list.each{ |movie| puts movie[:title]} 	
+			end
+		end
+
+		def list_movies_with_actor(actor, min_score = -1) # works
+			results_list = @actors_dataset.where(Sequel.ilike(:name, '%'+actor+'%')).all
+
+			if results_list.length > 1
+				temp = []
+				results_list.each {|result| temp << result[:name]}
+				puts "Here are the results for '#{actor}'. Please enter the number of the one you want."
+				temp.each_with_index do |name,i| 
+					puts "#{i+1}: #{name}"
+				end
+				print '> '
+				actor_name = temp[$stdin.gets.chomp.to_i - 1]
+
+			elsif results_list.length == 1
+				actor_name = results_list[0][:name]
+
+			else
+				puts "Sorry, we couldn't find an actor named '#{actor}'. Here are the actors we have:"
+				@actors_dataset.select(:name).order(:name).all.each {|actor| puts '- ' + actor[:name]}
+				return
+			end
+
+			movie_list = @movie_actor_join.order(:title).distinct(:movies__id,:title).where({:name => actor_name} & {:available => 1} & (Sequel.expr(:audience_score) >= min_score)).all 
+
+			if movie_list.empty?
+				puts "Sorry, we don\'t have any movies starring \'#{actor_name}\'."
+			else
+				puts "--- Movies starring '#{actor_name}' ---"
+				movie_list.each{ |movie| puts movie[:title]} 	
+			end
+		end
+
+		def list_movies_by_genre(genre, min_score = -1) # works
+			movie_list = @movie_genre_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:genre, '%'+genre+'%') & {:available => 1} & (Sequel.expr(:audience_score) >= min_score)).all
+
+			if movie_list.empty?
+				puts 'Sorry, we don\'t have that genre. Please enter one from the list:'
+				@genres_dataset.select(:genre).order(:genre).all.each {|genre| puts '- ' + genre[:genre]}
+			else
+				search_genre = movie_list.first[:genre]
+				puts "--- Movies with genre '#{search_genre}' ---"
+				movie_list.each{ |movie| puts movie[:title]} 
+			end
+		end
+
+		def play_unseen_genre(genre, min_score = -1) # works
+			movie_genre_list = @movie_genre_join.order(:title).distinct(:movies__id,:title).where(Sequel.ilike(:genre, '%'+genre+'%') & {:available => 1} & (Sequel.expr(:audience_score) >= min_score)).all
+			if movie_genre_list.empty?
+				puts "Sorry, we don\'t have any movies with the genre #{genre}."
+				# this exception doesn't reveal if there are no movies of that genre above the minimum score
+			else
+				unwatched_list = movie_genre_list.select{|movie| movie[:watched] != 1}
+				if unwatched_list.empty?
+					puts "Sorry, you\'ve seen all of your #{genre} movies"
+				else
+					movie_title = unwatched_list.sample[:title]
+					play(movie_title,false)
+				end
+			end		
+		end
+
 		def play(movie_title, user_input=true) # works
 			# does a search for the title if a user input it. opens the exact file if another function provided the name
 			if user_input
@@ -266,18 +288,15 @@ module Mov
 			end
 
 			if movie_to_play 
-				puts "Play #{movie_to_play[:title]}? Y/N or end"
-				response = gets.chomp.downcase
+				puts "Play #{movie_to_play[:title]}? Y/N"
+				print '> '
+				response = $stdin.gets.chomp.downcase
 				case response
 				when 'y', 'yes'
 					update_watched_status(movie_to_play[:title],1)
 					system("open \"#{movie_to_play[:original_title]}\"")	# unix needs double quotes around file names with spaces
 				when 'n', 'no'
-					puts 'What movie would you like to play?'
-					response = gets.chomp.downcase
-					play(response)
-				when 'end'
-					return nil
+					puts 'Okay...'
 				else
 					puts 'Speak English, man!'
 					play(movie_title)
@@ -549,7 +568,7 @@ module Mov
 		def drop_table(table_name = table_name.to_sym)
 			if @@DB.table_exists?(table_name)
 				puts "Are you sure you want to drop table \'#{table_name}\'? Y/N"
-				response = gets.chomp.downcase
+				response = 1000.chomp.downcase
 
 				case response
 				when 'y', 'yes'
